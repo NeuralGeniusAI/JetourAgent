@@ -1,0 +1,45 @@
+@import "tailwindcss";
+@font-face {
+  font-family: "Glacier";
+  src: url("/fonts/Glacier-Regular.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Sinteca";
+  src: url("/fonts/Sinteca/Sinteca-Medium.otf");
+}
+
+@font-face {
+  font-family: "Manrope";
+  src: url("/fonts/Manrope/Manrope-Regular.ttf");
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Manrope";
+}
+
+li > a {
+  text-decoration: underline;
+  color: #1f79ff;
+}
