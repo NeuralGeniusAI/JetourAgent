@@ -15,20 +15,25 @@ interface Message {
 }
 
 const Home = () => {
+  const [mounted, setMounted] = useState(false);
   const [mensaje, setMensaje] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [showCards, setShowCards] = useState(true);
   const [isTyping, setIsTyping] = useState(false); // Nuevo estado para el indicador de typing
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId] = useState<string>(() => uuidv4()); // Generar ID inmediatamente en el estado inicial
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
-    setConversationId(uuidv4());
+    setMounted(true);
   }, []);
+
+  if (!mounted) {
+    return null; // o un skeleton/loading durante la hidratación
+  }
 
   const enviarMensaje = async () => {
     if (!mensaje.trim()) return;
@@ -76,7 +81,7 @@ const Home = () => {
         isUser: false,
         timestamp: new Date(),
       };
-
+      
       setMessages((prev) => [...prev, aiMessage]);
 
       while (!done) {
@@ -113,17 +118,6 @@ const Home = () => {
       }
 
       console.log("Respuesta completa del AI:", aiMessageText);
-
-      // Send messages to CRM
-      const crmResponse = await axios.post("https://n8n.neuralgeniusai.com/webhook/jetourCRM", {
-        body: {
-          conversationId: conversationId,
-          humanMessage: userMessage.text,
-          aiMessage: aiMessageText,
-        }
-      })
-
-      console.log("Respuesta del CRM:", crmResponse.data);
 
       setIsTyping(false);
     } catch (error) {
@@ -398,7 +392,7 @@ const Home = () => {
               type="text"
               value={mensaje}
               onChange={(e) => setMensaje(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && enviarMensaje()}
+              onKeyDown={(e) => e.key === "Enter" && enviarMensaje()}
               placeholder="Ingresa tu consulta..."
               className="w-full outline-none text-gray-800 placeholder-gray-500"
             />

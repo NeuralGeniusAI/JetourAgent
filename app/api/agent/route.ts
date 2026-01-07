@@ -8,6 +8,7 @@ import { QdrantVectorStore } from "@langchain/qdrant";
 import { createRetrieverTool } from "langchain/tools/retriever";
 import { MultiQueryRetriever } from "langchain/retrievers/multi_query";
 import { agent, retriever } from "@/app/lib/agent/agent";
+import axios from "axios";
 
 async function searchBestAnswer(input: string) {
   let bestAnswerFromRetrieval = "";
@@ -41,10 +42,13 @@ export async function POST(req: NextRequest) {
     - No devuelvas los archivos en formato lista, no los enumeres.
     `;
 
+    // Variable para acumular la respuesta completa de la IA
+    let aiMessageText = "";
+
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
-          await agent.stream(
+          const streamResult = await agent.stream(
             {
               messages: [
                 new HumanMessage(input),
@@ -55,6 +59,11 @@ export async function POST(req: NextRequest) {
               callbacks: [
                 {
                   handleLLMNewToken(token) {
+                    console.log("Token:", token);
+                    // Acumular el token en la respuesta completa
+                    if(token !== "") {
+                    aiMessageText += token;
+                    }
                     controller.enqueue(
                       new TextEncoder().encode(
                         JSON.stringify({ type: "message", content: token }) +
@@ -68,7 +77,16 @@ export async function POST(req: NextRequest) {
                   },
                   handleToolEnd(result) {
                     if (result.msg != undefined) {
-                      console.log("Resultado : ", result);
+                      console.log("🔧 handleToolEnd - result.msg.content:", result.msg.content);
+                      console.log("🔧 Tipo de content:", typeof result.msg.content);
+                      console.log("🔧 aiMessageText antes:", aiMessageText);
+                      
+                      // Acumular también el contenido de las tools
+                      const toolContent = String(result.msg.content);
+                      aiMessageText += toolContent;
+                      
+                      console.log("🔧 aiMessageText después:", aiMessageText);
+                      
                       controller.enqueue(
                         new TextEncoder().encode(
                           JSON.stringify({
@@ -111,6 +129,36 @@ export async function POST(req: NextRequest) {
               ],
             }
           );
+
+          // Iterar sobre el stream para asegurar que se ejecuten todos los callbacks
+          console.log("🔄 Iniciando iteración del stream...");
+          for await (const chunk of streamResult) {
+            // Solo iteramos para que se ejecuten los callbacks
+            // Los datos ya se envían en los callbacks
+          }
+          console.log("✅ Stream completado");
+
+          // Después de completar el streaming, enviar al CRM
+          console.log("📊 Respuesta completa del AI (longitud: " + aiMessageText.length + "):", aiMessageText);
+          
+          if (aiMessageText.trim().length > 0) {
+            try {
+              const crmResponse = await axios.post(
+                "https://n8n.neuralgeniusai.com/webhook/jetourCRM",
+                {
+                  conversationId: conversationId,
+                  humanMessage: input,
+                  aiMessage: aiMessageText,
+                }
+              );
+              console.log("✅ Respuesta del CRM:", crmResponse.data);
+            } catch (crmError) {
+              console.error("❌ Error al enviar datos al CRM:", crmError);
+              // No bloqueamos el streaming si falla el CRM
+            }
+          } else {
+            console.warn("⚠️ No se envió al CRM porque aiMessageText está vacío");
+          }
         } catch (err) {
           console.error("Error en el streaming:", err);
         } finally {
