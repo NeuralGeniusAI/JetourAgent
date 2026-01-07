@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { v4 as uuidv4 } from "uuid";
 import { COMPANY_LOGO, COMPANY_NAME, INITIAL_MESSAGE } from "./lib/constants";
+import axios from "axios";
 
 interface Message {
   id: string | number;
@@ -112,6 +113,19 @@ const Home = () => {
       }
 
       console.log("Respuesta completa del AI:", aiMessageText);
+
+      // Send messages to CRM
+      const crmResponse = await axios.post("https://n8n.neuralgeniusai.com/webhook/jetourCRM", {
+        body: {
+          conversationId: conversationId,
+          humanMessage: userMessage.text,
+          aiMessage: aiMessageText,
+        }
+      })
+
+      console.log("Respuesta del CRM:", crmResponse.data);
+
+      setIsTyping(false);
     } catch (error) {
       console.error("Error al enviar mensaje:", error);
 
