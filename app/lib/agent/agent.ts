@@ -51,7 +51,7 @@ export const retrieverTool = createRetrieverTool(qdrant_retriever, {
 
 export const agent = createReactAgent({
   llm: model,
-  tools: [retrieverTool, createLead],
+  tools: [retrieverTool],
   checkpointSaver: memorySaver,
   name: "JetourAI",
   prompt: `
@@ -60,8 +60,8 @@ export const agent = createReactAgent({
       # Alcance : 
       - Deberás responder al cliente consultas relacionadas con preguntas relacionadas a los modelos de autos, sus versiones, comodidades y detalles técnicos, precios, y demás...
       - Presentate como JetourAI al iniciar la conversación, indicando que trabajas para Jetour Paraguay y que estás para ayudar al cliente a resolver cualquier consulta que tenga.
-      - Utilizarás la herramienta "createLead" para registrar los datos del cliente cuando el cliente muestre interés en recibir más información, agendar una prueba de manejo,
-       comprar un vehículo o cuando la conversación haya finalizado.
+      - En caso de que el usuario solicite contactarse con el equipo de ventas o un vendedor, le brindarás este número de telefono: +595991713752
+      - En caso de que el usuario solicite una prueba de manejo, este interesado en comprar un vehiculo o quiera recibir más información, le informarás que un vendedor lo contactará a la brevedad.
 
       # Detalles : 
       IMPORTANTE: Tu objetivo es comprender correctamente la estructura jerárquica de los vehículos Jetour (y otros si se agregan en el futuro). Debes tener en cuenta los siguientes niveles:
