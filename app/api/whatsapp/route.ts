@@ -1,62 +1,71 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as dotenv from "dotenv";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { agent } from "@/app/lib/agent/agent";
-import { SystemMessagePromptTemplate } from "@langchain/core/prompts";
+import axios from "axios";
 
 dotenv.config();
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const time = Date.now();
     const input = body.input;
     const conversationId = body.conversationId;
     const phoneNumber = body.phoneNumber;
     const userName = body.userName;
 
-    const sysMsg = `Este es el mensaje del cliente : ${input}, Nombre del cliente ${userName}, Número de Telefono del cliente : ${phoneNumber}.
-     Devuelve la respuesta en un JSON, y pon los mensajes dentro de un array, separados naturalmente como si fueran mensajes diferentes.
-     Deberas colocar en type: message si es texto, y si es una imagen deberas colocar un type: image y solo brindar la url sin ningun otro texto.
-     Es muy importante que no brindes la respuesta en formato markdown, simplemente brindarlo en formato JSON sin ningun backsticks ni texto extra, limpio`;
+    const API_KEY = process.env.NEURALGENIUS_API_KEY;
+    const AGENT_NAME = process.env.NEURALGENIUS_AGENT_NAME || "jetour";
 
-    let fullResponse: any = "";
-
-    fullResponse = await agent.invoke(
-      {
-        messages: [new SystemMessage(sysMsg)],
-      },
-      {
-        configurable: { thread_id: conversationId },
-      }
-    );
-
-    let content =
-      fullResponse.output?.content ?? fullResponse.messages?.at(-1)?.content;
-
-    console.log("Content preformat : ", content);
-
-    if (typeof content === "string") {
-        content = content
-          .replace(/^\s*```(?:json)?/, "") // remueve ```json o ``` al principio
-          .replace(/```$/, "")             // remueve ``` al final
-          .trim();
-      }
-
-    let parsed = "";
-    try {
-      parsed = JSON.parse(content);
-    } catch (e) {
-      console.error("❌ Error al parsear JSON del modelo:", e);
+    if (!API_KEY) {
+      console.error("❌ NEURALGENIUS_API_KEY no está configurada");
       return NextResponse.json(
-        { error: "Formato inválido de respuesta JSON" },
+        { error: "API key no configurada" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ messages: parsed });
+    console.log("🚀 Enviando mensaje a NeuralGenius API desde WhatsApp...");
+    console.log("Usuario:", userName, "Teléfono:", phoneNumber);
+
+    const response = await axios.post(
+      "https://agents.neuralgenius.tech/api/public/agent",
+      {
+        agentName: AGENT_NAME,
+        message: input,
+        conversationId: conversationId,
+      },
+      {
+        headers: {
+          "x-api-key": API_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    let content = response.data.content;
+
+    console.log("✅ Respuesta recibida de NeuralGenius API");
+    console.log("Content:", content);
+
+    // Si el contenido ya viene como string de JSON, parsearlo
+    if (typeof content === "string") {
+      content = content
+        .replace(/^\s*```(?:json)?/, "")
+        .replace(/```$/, "")
+        .trim();
+      
+      try {
+        content = JSON.parse(content);
+      } catch (e) {
+        // Si no es JSON, crear un formato de mensaje simple
+        console.log("⚠️ La respuesta no es JSON, creando formato simple");
+        content = [{ type: "message", content: content }];
+      }
+    }
+
+    return NextResponse.json({ messages: content });
   } catch (err: any) {
-    console.error("Error en /api/agent:", err);
+    console.error("❌ Error en /api/whatsapp:", err);
+    console.error("Detalles:", err.response?.data || err.message);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
